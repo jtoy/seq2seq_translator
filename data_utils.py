@@ -264,26 +264,27 @@ def prepare_data(data_dir, first_vocabulary_size, last_vocabulary_size):
   train_last_file = os.path.join(data_dir,"last_train.txt")
   dev_first_file = os.path.join(data_dir,"first_dev.txt")
   dev_last_file = os.path.join(data_dir,"last_dev.txt")
-  count = 0
-  with open(first_file) as f:
-      with gfile.GFile(train_first_file, mode="w") as train_f:
-          with gfile.GFile(dev_first_file, mode="w") as dev_f:
-              for line in f:
-                  if count < line_stop:
-                      train_f.write(line) 
-                  else:
-                      dev_f.write(line) 
-                  count += 1
-  count = 0
-  with open(last_file) as f:
-      with gfile.GFile(train_last_file, mode="w") as train_f:
-          with gfile.GFile(dev_last_file, mode="w") as dev_f:
-              for line in f:
-                  if count < line_stop:
-                      train_f.write(line) 
-                  else:
-                      dev_f.write(line) 
-                  count += 1
+  if not os.path.exists(train_first_file) and not os.path.exists(dev_last_file):
+      count = 0
+      with open(first_file) as f:
+          with gfile.GFile(train_first_file, mode="w") as train_f:
+              with gfile.GFile(dev_first_file, mode="w") as dev_f:
+                  for line in f:
+                      if count < line_stop:
+                          train_f.write(line) 
+                      else:
+                          dev_f.write(line) 
+                      count += 1
+      count = 0
+      with open(last_file) as f:
+          with gfile.GFile(train_last_file, mode="w") as train_f:
+              with gfile.GFile(dev_last_file, mode="w") as dev_f:
+                  for line in f:
+                      if count < line_stop:
+                          train_f.write(line) 
+                      else:
+                          dev_f.write(line) 
+                      count += 1
 
 
   # Create vocabularies of the appropriate sizes.

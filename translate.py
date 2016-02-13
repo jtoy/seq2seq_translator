@@ -81,8 +81,8 @@ def read_data(source_path, target_path, max_size=None):
   """Read data from source and target files and put into buckets.
 
   Args:
-    source_path: path to the files with token-ids for the source language.
-    target_path: path to the file with token-ids for the target language;
+    source_path: path to the files with token-ids for the source.
+    target_path: path to the file with token-ids for the target;
       it must be aligned with the source file: n-th line contains the desired
       output for n-th line from the source_path.
     max_size: maximum number of lines to read, all other will be ignored;
@@ -155,6 +155,7 @@ def train():
     # A bucket scale is a list of increasing numbers from 0 to 1 that we'll use
     # to select a bucket. Length of [scale[i], scale[i+1]] is proportional to
     # the size if i-th training bucket, as used later.
+
     train_buckets_scale = [sum(train_bucket_sizes[:i + 1]) / train_total_size
                            for i in xrange(len(train_bucket_sizes))]
 
