@@ -1,19 +1,4 @@
-# Copyright 2015 Google Inc. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
-
-"""Utilities for downloading data from WMT, tokenizing, vocabularies."""
+"""Utilities for tokenizing, vocabularies."""
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -42,7 +27,6 @@ UNK_ID = 3
 _WORD_SPLIT = re.compile("([.,!?\"':;)(])")
 _DIGIT_RE = re.compile(r"\d")
 
-# URLs for WMT data.
 _WMT_ENFR_TRAIN_URL = "http://www.statmt.org/wmt10/training-giga-fren.tar"
 _WMT_ENFR_DEV_URL = "http://www.statmt.org/wmt15/dev-v2.tgz"
 
@@ -70,7 +54,7 @@ def gunzip_file(gz_path, new_path):
         new_file.write(line)
 
 
-def get_wmt_enfr_train_set(directory):
+def get_train_set(directory):
   """Download the WMT en-fr training corpus to directory unless it's there."""
   train_path = os.path.join(directory, "giga-fren.release2")
   if not (gfile.Exists(train_path +".fr") and gfile.Exists(train_path +".en")):
@@ -84,7 +68,7 @@ def get_wmt_enfr_train_set(directory):
   return train_path
 
 
-def get_wmt_enfr_dev_set(directory):
+def get_dev_set(directory):
   """Download the WMT en-fr training corpus to directory unless it's there."""
   dev_name = "newstest2013"
   dev_path = os.path.join(directory, dev_name)
@@ -239,14 +223,14 @@ def data_to_token_ids(data_path, target_path, vocabulary_path,
                                             normalize_digits)
           tokens_file.write(" ".join([str(tok) for tok in token_ids]) + "\n")
 
-
-def prepare_wmt_data(data_dir, en_vocabulary_size, fr_vocabulary_size):
-  """Get WMT data into data_dir, create vocabularies and tokenize data.
+#REDO THIS
+def prepare_data(data_dir, first_vocabulary_size, last_vocabulary_size):
+  """create vocabularies and tokenize data.
 
   Args:
     data_dir: directory in which the data sets will be stored.
-    en_vocabulary_size: size of the English vocabulary to create and use.
-    fr_vocabulary_size: size of the French vocabulary to create and use.
+    first_vocabulary_size: size of the first vocabulary to create and use.
+    last_vocabulary_size: size of the last vocabulary to create and use.
 
   Returns:
     A tuple of 6 elements:
@@ -258,27 +242,68 @@ def prepare_wmt_data(data_dir, en_vocabulary_size, fr_vocabulary_size):
       (6) path to the French vocabluary file.
   """
   # Get wmt data to the specified directory.
-  train_path = get_wmt_enfr_train_set(data_dir)
-  dev_path = get_wmt_enfr_dev_set(data_dir)
+  #train_path = get_train_set(data_dir)
+  #dev_path = get_dev_set(data_dir)
+  #print(train_path)
+  #print(dev_path)
+
+  first_file = os.path.join(data_dir,"first.txt")
+  last_file = os.path.join(data_dir,"last.txt")
+  first_num_lines = sum(1 for line in open(first_file))
+  last_num_lines = sum(1 for line in open(last_file))
+  train_path = os.path.join(data_dir,"train")
+  dev_path = os.path.join(data_dir,"dev")
+  if first_num_lines != last_num_lines:
+    raise ValueError('input files do not have have the amount of lines!')
+  print(first_num_lines)
+  percent = 0.1 #TODO turn into flag
+  line_stop = first_num_lines - int(round(first_num_lines  * percent))
+
+
+  train_first_file = os.path.join(data_dir,"first_train.txt")
+  train_last_file = os.path.join(data_dir,"last_train.txt")
+  dev_first_file = os.path.join(data_dir,"first_dev.txt")
+  dev_last_file = os.path.join(data_dir,"last_dev.txt")
+  count = 0
+  with open(first_file) as f:
+      with gfile.GFile(train_first_file, mode="w") as train_f:
+          with gfile.GFile(dev_first_file, mode="w") as dev_f:
+              for line in f:
+                  if count < line_stop:
+                      train_f.write(line) 
+                  else:
+                      dev_f.write(line) 
+                  count += 1
+  count = 0
+  with open(last_file) as f:
+      with gfile.GFile(train_last_file, mode="w") as train_f:
+          with gfile.GFile(dev_last_file, mode="w") as dev_f:
+              for line in f:
+                  if count < line_stop:
+                      train_f.write(line) 
+                  else:
+                      dev_f.write(line) 
+                  count += 1
+
 
   # Create vocabularies of the appropriate sizes.
-  fr_vocab_path = os.path.join(data_dir, "vocab%d.fr" % fr_vocabulary_size)
-  en_vocab_path = os.path.join(data_dir, "vocab%d.en" % en_vocabulary_size)
-  create_vocabulary(fr_vocab_path, train_path + ".fr", fr_vocabulary_size)
-  create_vocabulary(en_vocab_path, train_path + ".en", en_vocabulary_size)
+  last_vocab_path = os.path.join(data_dir, "vocab%d.last" % last_vocabulary_size)
+  first_vocab_path = os.path.join(data_dir, "vocab%d.first" % first_vocabulary_size)
+  create_vocabulary(last_vocab_path, last_file, last_vocabulary_size)
+  create_vocabulary(first_vocab_path, first_file, first_vocabulary_size)
 
   # Create token ids for the training data.
-  fr_train_ids_path = train_path + (".ids%d.fr" % fr_vocabulary_size)
-  en_train_ids_path = train_path + (".ids%d.en" % en_vocabulary_size)
-  data_to_token_ids(train_path + ".fr", fr_train_ids_path, fr_vocab_path)
-  data_to_token_ids(train_path + ".en", en_train_ids_path, en_vocab_path)
+  last_train_ids_path = train_path + (".ids%d.last" % last_vocabulary_size)
+  first_train_ids_path = train_path + (".ids%d.first" % first_vocabulary_size)
+  data_to_token_ids(train_last_file, last_train_ids_path, last_vocab_path)
+  data_to_token_ids(train_first_file, first_train_ids_path, first_vocab_path)
 
   # Create token ids for the development data.
-  fr_dev_ids_path = dev_path + (".ids%d.fr" % fr_vocabulary_size)
-  en_dev_ids_path = dev_path + (".ids%d.en" % en_vocabulary_size)
-  data_to_token_ids(dev_path + ".fr", fr_dev_ids_path, fr_vocab_path)
-  data_to_token_ids(dev_path + ".en", en_dev_ids_path, en_vocab_path)
+  last_dev_ids_path = dev_path + (".ids%d.last" % last_vocabulary_size)
+  first_dev_ids_path = dev_path + (".ids%d.first" % first_vocabulary_size)
+  data_to_token_ids(dev_last_file, last_dev_ids_path, last_vocab_path)
+  data_to_token_ids(dev_first_file, first_dev_ids_path, first_vocab_path)
 
-  return (en_train_ids_path, fr_train_ids_path,
-          en_dev_ids_path, fr_dev_ids_path,
-          en_vocab_path, fr_vocab_path)
+  return (first_train_ids_path, last_train_ids_path,
+          first_dev_ids_path, last_dev_ids_path,
+          first_vocab_path, last_vocab_path)
