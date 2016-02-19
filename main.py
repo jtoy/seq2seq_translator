@@ -15,13 +15,6 @@
 
 """Binary for training translation models and decoding from them.
 
-Running this program without --decode will download the WMT corpus into
-the directory specified as --data_dir and tokenize it in a very basic way,
-and then start training a model saving checkpoints to --train_dir.
-
-Running with --decode starts an interactive loop so you can see how
-the current checkpoint translates English sentences into French.
-
 See the following papers for more information on neural translation models.
  * http://arxiv.org/abs/1409.3215
  * http://arxiv.org/abs/1409.0473
@@ -56,10 +49,11 @@ tf.app.flags.DEFINE_float("max_gradient_norm", 5.0,
 tf.app.flags.DEFINE_integer("batch_size", 64,
                             "Batch size to use during training.")
 tf.app.flags.DEFINE_integer("size", 1024, "Size of each model layer.")
+tf.app.flags.DEFINE_integer("epoch", 25, "number of full passes through the training data")
 tf.app.flags.DEFINE_integer("num_layers", 3, "Number of layers in the model.")
 tf.app.flags.DEFINE_integer("first_vocab_size", 40000, "first vocabulary size.")
 tf.app.flags.DEFINE_integer("last_vocab_size", 40000, "last vocabulary size.")
-tf.app.flags.DEFINE_string("data_dir", "/tmp", "Data directory")
+tf.app.flags.DEFINE_string("data_dir", "/tmp", "Data directory where first.txt and last.txt reside")
 tf.app.flags.DEFINE_string("train_dir", "/tmp", "Training directory.")
 tf.app.flags.DEFINE_integer("max_train_data_size", 0,
                             "Limit on the size of training data (0: no limit).")
@@ -151,6 +145,7 @@ def train():
     train_set = read_data(en_train, fr_train, FLAGS.max_train_data_size)
     train_bucket_sizes = [len(train_set[b]) for b in xrange(len(_buckets))]
     train_total_size = float(sum(train_bucket_sizes))
+    print(train_total_size)
 
     # A bucket scale is a list of increasing numbers from 0 to 1 that we'll use
     # to select a bucket. Length of [scale[i], scale[i+1]] is proportional to
@@ -163,7 +158,7 @@ def train():
     step_time, loss = 0.0, 0.0
     current_step = 0
     previous_losses = []
-    while True:
+    for epoch in xrange(FLAGS.epoch):
       # Choose a bucket according to data distribution. We pick a random number
       # in [0, 1] and use the corresponding interval in train_buckets_scale.
       random_number_01 = np.random.random_sample()
@@ -184,8 +179,8 @@ def train():
       if current_step % FLAGS.steps_per_checkpoint == 0:
         # Print statistics for the previous epoch.
         perplexity = math.exp(loss) if loss < 300 else float('inf')
-        print ("global step %d learning rate %.4f step-time %.2f perplexity "
-               "%.2f" % (model.global_step.eval(), model.learning_rate.eval(),
+        print ("epoch %d global step %d learning rate %.4f step-time %.2f perplexity "
+               "%.2f" % (epoch,model.global_step.eval(), model.learning_rate.eval(),
                          step_time, perplexity))
         # Decrease learning rate if no improvement was seen over last 3 times.
         if len(previous_losses) > 2 and loss > max(previous_losses[-3:]):
@@ -213,12 +208,12 @@ def decode():
     model.batch_size = 1  # We decode one sentence at a time.
 
     # Load vocabularies.
-    en_vocab_path = os.path.join(FLAGS.data_dir,
-                                 "vocab%d.en" % FLAGS.en_vocab_size)
-    fr_vocab_path = os.path.join(FLAGS.data_dir,
-                                 "vocab%d.fr" % FLAGS.fr_vocab_size)
-    en_vocab, _ = data_utils.initialize_vocabulary(en_vocab_path)
-    _, rev_fr_vocab = data_utils.initialize_vocabulary(fr_vocab_path)
+    first_vocab_path = os.path.join(FLAGS.data_dir,
+                                 "vocab%d.first" % FLAGS.first_vocab_size)
+    last_vocab_path = os.path.join(FLAGS.data_dir,
+                                 "vocab%d.last" % FLAGS.last_vocab_size)
+    first_vocab, _ = data_utils.initialize_vocabulary(first_vocab_path)
+    _, rev_last_vocab = data_utils.initialize_vocabulary(last_vocab_path)
 
     # Decode from standard input.
     sys.stdout.write("> ")
@@ -226,7 +221,7 @@ def decode():
     sentence = sys.stdin.readline()
     while sentence:
       # Get token-ids for the input sentence.
-      token_ids = data_utils.sentence_to_token_ids(sentence, en_vocab)
+      token_ids = data_utils.sentence_to_token_ids(sentence, first_vocab)
       # Which bucket does it belong to?
       bucket_id = min([b for b in xrange(len(_buckets))
                        if _buckets[b][0] > len(token_ids)])
@@ -242,7 +237,7 @@ def decode():
       if data_utils.EOS_ID in outputs:
         outputs = outputs[:outputs.index(data_utils.EOS_ID)]
       # Print out French sentence corresponding to outputs.
-      print(" ".join([rev_fr_vocab[output] for output in outputs]))
+      print(" ".join([rev_last_vocab[output] for output in outputs]))
       print("> ", end="")
       sys.stdout.flush()
       sentence = sys.stdin.readline()
