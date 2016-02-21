@@ -224,7 +224,7 @@ def data_to_token_ids(data_path, target_path, vocabulary_path,
           tokens_file.write(" ".join([str(tok) for tok in token_ids]) + "\n")
 
 #REDO THIS
-def prepare_data(data_dir, first_vocabulary_size, last_vocabulary_size):
+def prepare_data(data_dir,train_dir, first_vocabulary_size, last_vocabulary_size):
   """create vocabularies and tokenize data.
 
   Args:
@@ -251,8 +251,8 @@ def prepare_data(data_dir, first_vocabulary_size, last_vocabulary_size):
   last_file = os.path.join(data_dir,"last.txt")
   first_num_lines = sum(1 for line in open(first_file))
   last_num_lines = sum(1 for line in open(last_file))
-  train_path = os.path.join(data_dir,"train")
-  dev_path = os.path.join(data_dir,"dev")
+  train_path = os.path.join(train_dir,"train")
+  dev_path = os.path.join(train_dir,"dev")
   if first_num_lines != last_num_lines:
     raise ValueError('input files do not have have the amount of lines!')
   print(first_num_lines)
@@ -288,8 +288,8 @@ def prepare_data(data_dir, first_vocabulary_size, last_vocabulary_size):
 
 
   # Create vocabularies of the appropriate sizes.
-  last_vocab_path = os.path.join(data_dir, "vocab%d.last" % last_vocabulary_size)
-  first_vocab_path = os.path.join(data_dir, "vocab%d.first" % first_vocabulary_size)
+  last_vocab_path = os.path.join(train_dir, "vocab%d.last" % last_vocabulary_size)
+  first_vocab_path = os.path.join(train_dir, "vocab%d.first" % first_vocabulary_size)
   create_vocabulary(last_vocab_path, last_file, last_vocabulary_size)
   create_vocabulary(first_vocab_path, first_file, first_vocabulary_size)
 

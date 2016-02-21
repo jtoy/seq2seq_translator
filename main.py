@@ -59,13 +59,12 @@ tf.app.flags.DEFINE_integer("max_train_data_size", 0,
                             "Limit on the size of training data (0: no limit).")
 tf.app.flags.DEFINE_integer("steps_per_checkpoint", 200,
                             "How many training steps to do per checkpoint.")
-tf.app.flags.DEFINE_boolean("decode", False,
-                            "Set to True for interactive decoding.")
+tf.app.flags.DEFINE_boolean("decode", False, "Set to True for interactive decoding.")
+tf.app.flags.DEFINE_string("input","hello","input to decode")
 tf.app.flags.DEFINE_boolean("self_test", False,
                             "Run a self-test if this is set to True.")
 
 FLAGS = tf.app.flags.FLAGS
-
 # We use a number of buckets and pad to the closest one for efficiency.
 # See seq2seq_model.Seq2SeqModel for details of how they work.
 _buckets = [(5, 10), (10, 15), (20, 25), (40, 50)]
@@ -131,7 +130,7 @@ def train():
   # Prepare WMT data.
   print("Preparing data in %s" % FLAGS.data_dir)
   en_train, fr_train, en_dev, fr_dev, _, _ = data_utils.prepare_data(
-      FLAGS.data_dir, FLAGS.first_vocab_size, FLAGS.last_vocab_size)
+      FLAGS.data_dir, FLAGS.train_dir,FLAGS.first_vocab_size, FLAGS.last_vocab_size)
 
   with tf.Session() as sess:
     # Create model.
@@ -139,13 +138,13 @@ def train():
     model = create_model(sess, False)
 
     # Read data into buckets and compute their sizes.
-    print ("Reading development and training data (limit: %d)."
+    print("Reading development and training data (limit: %d)."
            % FLAGS.max_train_data_size)
     dev_set = read_data(en_dev, fr_dev)
     train_set = read_data(en_train, fr_train, FLAGS.max_train_data_size)
     train_bucket_sizes = [len(train_set[b]) for b in xrange(len(_buckets))]
     train_total_size = float(sum(train_bucket_sizes))
-    print(train_total_size)
+    #print(train_total_size)
 
     # A bucket scale is a list of increasing numbers from 0 to 1 that we'll use
     # to select a bucket. Length of [scale[i], scale[i+1]] is proportional to
@@ -158,6 +157,7 @@ def train():
     step_time, loss = 0.0, 0.0
     current_step = 0
     previous_losses = []
+    checkpoint_path = os.path.join(FLAGS.train_dir, "translate.ckpt")
     for epoch in xrange(FLAGS.epoch):
       # Choose a bucket according to data distribution. We pick a random number
       # in [0, 1] and use the corresponding interval in train_buckets_scale.
@@ -187,7 +187,6 @@ def train():
           sess.run(model.learning_rate_decay_op)
         previous_losses.append(loss)
         # Save checkpoint and zero timer and loss.
-        checkpoint_path = os.path.join(FLAGS.train_dir, "translate.ckpt")
         model.saver.save(sess, checkpoint_path, global_step=model.global_step)
         step_time, loss = 0.0, 0.0
         # Run evals on development set and print their perplexity.
@@ -199,6 +198,7 @@ def train():
           eval_ppx = math.exp(eval_loss) if eval_loss < 300 else float('inf')
           print("  eval: bucket %d perplexity %.2f" % (bucket_id, eval_ppx))
         sys.stdout.flush()
+    model.saver.save(sess, checkpoint_path, global_step=model.global_step)
 
 
 def decode():
@@ -208,9 +208,9 @@ def decode():
     model.batch_size = 1  # We decode one sentence at a time.
 
     # Load vocabularies.
-    first_vocab_path = os.path.join(FLAGS.data_dir,
+    first_vocab_path = os.path.join(FLAGS.train_dir,
                                  "vocab%d.first" % FLAGS.first_vocab_size)
-    last_vocab_path = os.path.join(FLAGS.data_dir,
+    last_vocab_path = os.path.join(FLAGS.train_dir,
                                  "vocab%d.last" % FLAGS.last_vocab_size)
     first_vocab, _ = data_utils.initialize_vocabulary(first_vocab_path)
     _, rev_last_vocab = data_utils.initialize_vocabulary(last_vocab_path)
@@ -218,29 +218,26 @@ def decode():
     # Decode from standard input.
     sys.stdout.write("> ")
     sys.stdout.flush()
-    sentence = sys.stdin.readline()
-    while sentence:
-      # Get token-ids for the input sentence.
-      token_ids = data_utils.sentence_to_token_ids(sentence, first_vocab)
-      # Which bucket does it belong to?
-      bucket_id = min([b for b in xrange(len(_buckets))
-                       if _buckets[b][0] > len(token_ids)])
-      # Get a 1-element batch to feed the sentence to the model.
-      encoder_inputs, decoder_inputs, target_weights = model.get_batch(
-          {bucket_id: [(token_ids, [])]}, bucket_id)
-      # Get output logits for the sentence.
-      _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
-                                       target_weights, bucket_id, True)
-      # This is a greedy decoder - outputs are just argmaxes of output_logits.
-      outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
-      # If there is an EOS symbol in outputs, cut them at that point.
-      if data_utils.EOS_ID in outputs:
-        outputs = outputs[:outputs.index(data_utils.EOS_ID)]
-      # Print out French sentence corresponding to outputs.
-      print(" ".join([rev_last_vocab[output] for output in outputs]))
-      print("> ", end="")
-      sys.stdout.flush()
-      sentence = sys.stdin.readline()
+    sentence = FLAGS.input
+    # Get token-ids for the input sentence.
+    token_ids = data_utils.sentence_to_token_ids(sentence, first_vocab)
+    # Which bucket does it belong to?
+    bucket_id = min([b for b in xrange(len(_buckets))
+                     if _buckets[b][0] > len(token_ids)])
+    # Get a 1-element batch to feed the sentence to the model.
+    encoder_inputs, decoder_inputs, target_weights = model.get_batch(
+        {bucket_id: [(token_ids, [])]}, bucket_id)
+    # Get output logits for the sentence.
+    _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs,
+                                     target_weights, bucket_id, True)
+    # This is a greedy decoder - outputs are just argmaxes of output_logits.
+    outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
+    # If there is an EOS symbol in outputs, cut them at that point.
+    if data_utils.EOS_ID in outputs:
+      outputs = outputs[:outputs.index(data_utils.EOS_ID)]
+    # Print out French sentence corresponding to outputs.
+    print(" ".join([rev_last_vocab[output] for output in outputs]))
+    sys.stdout.flush()
 
 
 def self_test():

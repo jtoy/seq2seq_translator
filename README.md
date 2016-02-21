@@ -11,7 +11,7 @@ This code is meant to run on *nix/mac, not windows
 to run:
 ```
 source ~/tensorflow/bin/activate
-python translate.py --data_dir ~/data_sets/eng-fren/
+python main.py --data_dir ~/data_sets/eng-fren/
 ```
 
 
