@@ -8,12 +8,17 @@ Both text files MUST contain the same amount of lines, each line corresponds to 
 
 This code is meant to run on *nix/mac, not windows
 
-to run:
+to train:
 ```
 source ~/tensorflow/bin/activate
-python main.py --data_dir ~/data_sets/eng-fren/
+python main.py --data_dir ~/data_sets/eng-fren/ --train_dir ~/train_dir
 ```
 
+to inference:
+```
+source ~/tensorflow/bin/activate
+python main.py --train_dir ~/train_dir  --decode True --input "hello world"
+```
 
 the data dir assumes that there are 2 txt files.  
 
