@@ -55,6 +55,7 @@ tf.app.flags.DEFINE_integer("first_vocab_size", 40000, "first vocabulary size.")
 tf.app.flags.DEFINE_integer("last_vocab_size", 40000, "last vocabulary size.")
 tf.app.flags.DEFINE_string("data_dir", "/tmp", "Data directory where first.txt and last.txt reside")
 tf.app.flags.DEFINE_string("train_dir", "/tmp", "Training directory.")
+tf.app.flags.DEFINE_string("output_dir", "output", "directory to write output to")
 tf.app.flags.DEFINE_integer("max_train_data_size", 0,
                             "Limit on the size of training data (0: no limit).")
 tf.app.flags.DEFINE_integer("steps_per_checkpoint", 200,
@@ -236,7 +237,12 @@ def decode():
     if data_utils.EOS_ID in outputs:
       outputs = outputs[:outputs.index(data_utils.EOS_ID)]
     # Print out French sentence corresponding to outputs.
-    print(" ".join([rev_last_vocab[output] for output in outputs]))
+    result = (" ".join([rev_last_vocab[output] for output in outputs]))
+    print(result)
+    output = os.path.join(FLAGS.output_dir,  str(int(time.time())) + ".txt")
+    with open(output, "w") as text_file:
+      text_file.write(result)
+    print(output)
     sys.stdout.flush()
 
 
